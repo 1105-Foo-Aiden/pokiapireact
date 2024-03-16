@@ -4,44 +4,50 @@ import APICalling, { FetchEvos, LocationCall } from "./DataServices/APICalling";
 import {IPokemon } from "./DataServices/APIDataService";
 
 function App() {
-  const names = document.getElementById("names");
-  const searchBtn = document.getElementById("searchBtn");
-  const searchField = document.getElementById("searchField");
-  const randomBtn = document.getElementById("randomBtn");
-  const favBtn = document.getElementById("favBtn");
-  const showFavBtn = document.getElementById("showFavBtn");
-  const favList = document.getElementById("favList");
-  const evolutions = document.getElementById("evolutions");
-  const pokemonImg = document.getElementById("pokemonImg");
-  const locations = document.getElementById("locations");
-  const moves = document.getElementById("moves");
   const abilities = document.getElementById("abilities");
-  const typing = document.getElementById("typing");
-  const pokemonSprite = document.getElementById("pokemoneSpirte");
-
   const [data, setData] = useState<IPokemon>();
   const [locationData, setLocationData] = useState<string>("");
   const [evoData, setEvoData] = useState<string[]>();
+  const [search, setSearch] = useState<string>();
+  const [searchItem, setSearchItem] = useState<string | number>(1);
 
 
-  let fetchedData
+  let fetchedData: IPokemon
+ const HandleSearchClick = () =>{
+    if(search){
+      setSearchItem(search)
+    }
+    else{
+       const randomNum: number = Math.floor(Math.random() * 649 + 1);
+       setSearchItem(randomNum)
+    }
+    return searchItem;
+  }
   useEffect(() => {
     const GetData = async () => {
-      const randomNum: number = Math.floor(Math.random() * 649 + 1);
-      fetchedData = await APICalling(randomNum);
-      setData(fetchedData)
-
-
-      const LocalData = await LocationCall(fetchedData.location_area_encounters)
+      try{
+        fetchedData = await APICalling(searchItem);
+        setData(fetchedData)
+      }
+      catch(error){
+        alert('There was an error fetching your Pokemon, you may have misspelled it, please try again')
+      }
+    if(data){
+      const LocalData = await LocationCall(data.location_area_encounters)
       setLocationData(LocalData)
 
 
-      const EvoData = await FetchEvos(fetchedData.species.url)
+      const EvoData = await FetchEvos(data.species.url)
       setEvoData(EvoData)
+    }
+
+      
        
     };
     GetData()
-  }, [fetchedData]);
+  }, [searchItem]);
+
+  
   
   return (
     <>
@@ -70,12 +76,15 @@ function App() {
               id="searchField"
               placeholder="Enter a Pokemon's name or number"
               className="mb-3 bg-gray-50 text-gray-900 w-96 h-15"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
 
             <button
               type="button"
               id="searchBtn"
               className="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-medium rounded-full text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 w-96 h-15"
+              onClick={HandleSearchClick}
             >
               Search
             </button>
@@ -114,15 +123,12 @@ function App() {
               {abilities? data?.abilities.map((ability) => ability.ability.name).join(", "): "N/A"}
             </p>
             <hr />
-             <p id="locations" className="text-2xl max-w-96 ">
-            {locationData? locationData : "N/A"}
+             <p id="locations" className="text-2xl max-w-96 ">{locationData? locationData : "N/A"}
             </p>  
             <hr />
             <p
               id="moves"
-              className="text-3xl max-h-20 max-w-96 overflow-y-scroll"
-            >
-              {data && data.moves.map((move) => move.move.name).join(", ")}
+              className="text-3xl max-h-20 max-w-96 overflow-y-scroll">{data && data.moves.map((move) => move.move.name).join(", ")}
             </p>
             <hr />
             <p id="evolutions" className="text-2xl max-w-96 ">
