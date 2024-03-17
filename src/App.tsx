@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import APICalling, { FetchEvos, LocationCall } from "./DataServices/APICalling";
-import { IPokemon } from "./DataServices/APIDataService";
+import { IEvoultions, IPokemon } from "./DataServices/APIDataService";
+import ModalComponent from "./Components/ModalComponent";
+import { deleteFromLS, saveLocalStorage } from "./DataServices/LocalStorage";
 
 function App() {
   const abilities = document.getElementById("abilities");
@@ -10,8 +12,9 @@ function App() {
   const [evoData, setEvoData] = useState<string[]>();
   const [search, setSearch] = useState<string>();
   const [searchItem, setSearchItem] = useState<string | number>(1);
-  let   [shiny, setShiny] = useState<Boolean>();
-  let   [randomNum, setRandom] = useState<number>(0);
+  let [shiny, setShiny] = useState<Boolean>();
+  let [randomNum, setRandom] = useState<number>(0);
+  const [isFav, setisFav] = useState<Boolean>(false);
 
   let fetchedData: IPokemon;
   const HandleSearchClick = () => {
@@ -25,22 +28,27 @@ function App() {
     const GetData = async () => {
       try {
         fetchedData = await APICalling(searchItem);
-        setData(fetchedData);
+        setData(fetchedData);    
+        console.log(data);
       } catch (error) {
-        alert(
-          "There was an error fetching your Pokemon, you may have misspelled it, please try again"
-        );
+        alert("The Pokemon you entered could not be found, please try again");
       }
+  
       if (data) {
         setShiny(false);
+        setSearch("");
         const LocalData = await LocationCall(data.location_area_encounters);
         setLocationData(LocalData);
+
         const EvoData = await FetchEvos(data.species.url);
         setEvoData(EvoData);
       }
     };
     GetData();
-  }, [searchItem, randomNum]);
+    if(data === null || undefined){
+      GetData()
+    }
+  }, [searchItem]);
 
   const HandleShiny = () => {
     setShiny(shiny ? false : true);
@@ -50,20 +58,34 @@ function App() {
   const HandleRandom = () => {
     setRandom(Math.floor(Math.random() * 649 + 1));
     setSearchItem(randomNum);
+    return searchItem
   };
 
-  const FavClick = () =>{
-    alert(`You Addded ${data?.name} to your favorites`)
-  }
-  
+  const FavClick = () => {
+    if (data && !isFav) {
+      setisFav(true);
+      alert(`You Addded ${data.name} to your favorites`);
+      saveLocalStorage(data.name);
+    } else {
+      if (data && isFav) {
+        setisFav(false);
+        alert(`You removed ${data?.name} from your favorites`);
+        deleteFromLS(data.name);
+      }
+    }
+  };
+
   return (
     <>
       <div className="container-fluid flex justify-center">
         <div className="container-fluid grid lg:grid-cols-2 grid-rows-1 gap-x-60 gap-y-10 sm:grid-cols-1">
           <img
             src={
-              !shiny
-                ? data? data.sprites.other?.["official-artwork"].front_default: "../public/Assets/Pokeball-1.png": data?.sprites.other?.["official-artwork"].front_shiny
+              data
+                ? data && !shiny
+                  ? data.sprites.other?.["official-artwork"].front_default
+                  : data.sprites.other?.["official-artwork"].front_shiny
+                : "./Assets/Pokeball-1.png"
             }
             alt="Pokeball starting img"
             id="pokemonImg"
@@ -72,9 +94,11 @@ function App() {
           />
           <img
             src={
-              !shiny
-                ? data
-                  ? data.sprites.other?.showdown.front_default: "../public/Assets/Pokeball-1.png": data? data.sprites.other?.showdown.front_shiny: "../public/Assets/Pokeball-1.png"
+              data
+                ? data && !shiny
+                  ? data.sprites.other?.showdown.front_default
+                  : data?.sprites.other?.showdown.front_shiny
+                : "./Assets/Pokeball-1.png"
             }
             alt="moving sprite"
             id="pokemonSprite"
@@ -114,42 +138,44 @@ function App() {
               className="text-white bg-red-700 hover:bg-red-800 focus:outline-none focus:ring-4 focus:ring-red-300 font-medium rounded-full text-sm px-5 py-2.5 text-center me-2 mb-2 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900 w-96 h-15"
               onClick={FavClick}
             >
-              Add to Favorites
+              {!isFav ? "Add to Favorites" : "Remove from Favorites"}
             </button>
-            <button
-              className="overflow-y-auto text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-full text-sm px-5 py-2.5 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 w-96 h-15 text-center"
-              type="button"
-              id="showFavBtn"
-            >
-              Show Favorites
-            </button>
+            <ModalComponent />
           </div>
           <div className="grid gap-1">
             <p id="names" className="text-3xl max-w-96">
-              {data && data.name}
+              {data && data ? data.name : "Name goes here"}
             </p>
             <hr />
             <p id="typing" className="text-3xl max-w-96">
-              {data && data.types.map((type) => type.type.name).join(", ")}
+              {data && data.types
+                ? data.types.map((type) => type.type.name).join(", ")
+                : "Types go here"}
             </p>
             <hr />
             <p id="abilities" className="text-3xl max-w-96">
-              {abilities? data?.abilities.map((ability) => ability.ability.name).join(", "): "N/A"}
+              {data && abilities
+                ? data?.abilities
+                    .map((ability) => ability.ability.name)
+                    .join(", ")
+                : "Abilities go here"}
             </p>
             <hr />
             <p id="locations" className="text-2xl max-w-96 ">
-              {locationData ? locationData : "N/A"}
+              {locationData ? locationData : "Locations go here"}
             </p>
             <hr />
             <p
               id="moves"
               className="text-3xl max-h-20 max-w-96 overflow-y-scroll"
             >
-              {data && data.moves.map((move) => move.move.name).join(", ")}
+              {data && data.moves
+                ? data.moves.map((move) => move.move.name).join(", ")
+                : "Moves go here"}
             </p>
             <hr />
             <p id="evolutions" className="text-2xl max-w-96 ">
-              {evoData ? evoData.join(" > ") : "N/A"}
+              {data && data.species.url ? evoData ? evoData.join(" > ") : "N/A" : "Evolutions go here"}
             </p>
           </div>
         </div>
